@@ -1,0 +1,66 @@
+2024: The year of Local Generative AI Models
+
+Introduction
+The year 2024 is shaping up to be a breakthrough year for locally-run large language models (LLMs). As cloud-based LLMs like GPT-3.5/GPT4 continue to advance, running powerful language AI locally on devices is becoming more viable and attractive. Local execution of LLMs could transform how small businesses, developers, and everyday users benefit from AI.
+
+With local computing hardware and optimization methods improving, it is now possible to run large neural network models locally without relying on the cloud. This evolution will likely accelerate in 2024 and beyond. The limitations of cloud dependency are motivating both startups and tech giants to innovate on putting more AI capability directly on users’ devices.
+
+If current trends hold, by the end of 2024 LLMs may transition from being exclusive cloud services to becoming ubiquitous utilities accessed locally on smartphones, PCs, and embedded systems. Democratizing access in this way can remove cost and privacy barriers to AI adoption for many applications. The local LLM revolution is poised to be one of the biggest AI stories of 2024.
+
+General Purpose GPUs
+Graphical processing units (GPUs) designed for 3D graphics have proven remarkably effective at running neural networks for ML. GPUs contain thousands of small efficient compute cores in parallel ideal for matrix math. As consumer GPUs continue to advance for gaming and graphics workloads, they also become increasingly capable of running advanced neural networks locally.
+
+Nvidia and AMD now offer GPU platforms accessible to everyday users that can run models with hundreds of millions of parameters. For example, the Nvidia RTX 4080 laptop GPU released in 2023 provides up to 14 teraflops of power that can be leveraged for AI inference. As consumer GPUs grow more specialized for ML with optimizations like sparsity support, they will become even better suited for local LLM execution.
+
+The rapid pace of consumer GPU development driven by the PC gaming industry should enable continuing improvements in on-device AI capabilities. By tailoring approaches like model quantization and compression to take full advantage of GPU architectures, local LLM performance can scale significantly through 2024 and beyond.
+
+NVIDIA has introduced recently Chat with RTX (Build a Custom LLM with Chat With RTX | NVIDIA), a groundbreaking localized AI chatbot that runs on Windows PCs equipped with NVIDIA GeForce RTX 30 series or higher GPUs. This marks a major shift away from reliance on cloud-based AI chatbots.
+
+Key features of Chat with RTX include:
+
+Local processing on the user’s device for fast, low latency responses without connectivity issues
+Multimedia integration, especially with YouTube, for contextualized responses
+Customization and personalization capabilities based on the user’s own documents and preferences
+Developer-friendly with a contest to encourage innovation
+Overall, Chat with RTX represents an exciting step towards more accessible and versatile AI by harnessing the power of local GPUs. It provides a glimpse into the future where generative AI is seamlessly integrated into daily life for a wide range of personalized applications.
+
+Local LLMs vs Cloud LLMs
+Local LLMs provide natural language processing capabilities without relying on an internet connection to cloud services. This contrasts with today’s dominant paradigm of large AI models like GPT-3.5/GPT4 hosted in the cloud. Companies offer API access to these cloud LLMs for a fee. With local LLMs, the model resides on the user’s device. This avoids costs, latency, and privacy concerns with cloud LLMs. However, local LLMs today have lagged behind in size and capabilities compared to the largest cloud models.
+
+As local computing improves, the performance gap between local and cloud LLMs is narrowing. Cloud-based LLMs benefit from vast resources, but also must handle high query volumes. This can lead to variable latency. Locally-run LLMs can be optimized specifically for their deployment platform. For many practical applications, a moderately sized local LLM provides sufficient quality with maximal responsiveness.
+
+Still, local LLMs have tradeoffs. Their performance is tied to available hardware not easily upgraded. Evolving cloud LLMs continuously with new training data is easier. But for safeguarding privacy while retaining utility, local LLMs are likely to displace cloud reliance for many users in 2024 and beyond.
+
+Data Privacy Concerns
+One driver of local LLM interest is rising apprehension about data privacy. When users interact with cloud LLMs, their personal data gets sent to the API provider. This data can be exploited, sold, or used to train new models without user consent. Local LLMs keep all processing self-contained. This aligns with Apple’s stringent privacy stance.
+
+As amazing as cloud LLMs seem, they enable opaque harvesting of user data, including private conversations. Mistrust is growing, especially after revelations that Meta provided Zuckerberg access to private user information. There is also no assurance cloud providers will manage data ethically.
+
+Local LLMs mitigate these concerns by design through data minimization. User data never leaves their device. This gives full control over how any training data is used. Enabling AI assistance while managing privacy risks will be critical for local LLM adoption.
+
+Small Language Models vs LLMs
+Although full scale LLMs are becoming more efficient, they still demand substantial computing resources not available on most devices. This has spurred interest in small locally-run language models (SLMs) tailored to specific tasks. SLMs can provide useful assistance while fitting hardware constraints. Finetuning opensource SLMs on niche data could enable customized local AI for small businesses.
+
+For consumer devices and applications, gigabyte-scale models are a sweet spot providing enough expressiveness for basic help with things like search and content generation. These small models can run responsively on available hardware. Larger local LLMs with billions of parameters tend to be overkill for most needs.
+
+Rapid progress in model optimization research is making small SLMs increasingly practical. Quantization, pruning, knowledge distillation, and efficient attention allow SLMs to deliver useful performance using fewer resources. As methods improve further, 100MB-1GB models may gain new conversational abilities through 2024.
+
+Apple AI will be here some time
+Apple is uniquely positioned to lead in on-device AI. The Apple Neural Engine could enable running advanced local LLMs on iPhones and Macs. Unlocking this capability for developers would strengthen Apple’s control over the user experience. Apple may announce their ambitions in this space in 2024.
+
+Apple’s prowess in silicon engineering gives it homegrown processors tailored for tasks like ML. With hardware and software integrated, Apple devices offer efficiency advantages. The Neural Engine demonstrates Apple’s commitment to enhancing on-device intelligence while protecting privacy.
+
+Bringing more powerful AI directly into Apple’s ecosystem fits their strategy. Relying on cloud services risks ceding ground to rivals. Apple has the resources to train custom LLMs exceeding what users can run locally today. Deploying an “Apple AI” on their hardware could keep users immersed in their world.
+
+Finetuning SLMs for Custom Business Needs
+Small companies don’t need cutting-edge AI necessarily, but assistants customized for their domain. By finetuning open source SLMs on relevant data, small businesses could build unique solutions. A local restaurant finder SLM or customer service SLM could provide targeted help. These finetuned models can continue to improve on local data.
+
+The breakthrough of LLMs is their versatility after training on massive data. Small businesses have niche needs better served by specialization. Finetuning takes an open source SLM foundation then adapts it to new tasks. This steering with domain-specific data creates customized assistants.
+
+As quality open source SLMs multiply, finetuning them locally on private data may drive adoption. A tourist site could gain unique local recommendations, or a clinic provide personalized symptom triaging. Maintaining user privacy and shaping assistance to their goals gives small businesses an advantage over one-size-fits-all cloud services.
+
+Conclusion
+In summary, 2024 may see local LLMs come into their own. Small on-device models can already handle useful tasks today. As technology improves and open source options multiply, local LLM adoption could accelerate. For small business owners, the benefits of private, low cost AI assistants will be compelling. 2024 may just be the tipping point for widespread local LLM usage.
+
+The local AI revolution stands to democratize access by removing cloud barriers. Individuals, developers, and companies, both large and small, can participate. As phones and computers gain assistance from LLM-level intelligence locally, it may fundamentally transform how we work and live. The potential is immense, and 2024 looks to be a landmark year as local LLMs move towards the mainstream.
+
