@@ -8,6 +8,7 @@ from sqlalchemy import create_engine, Column, String, LargeBinary
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 import time
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from fastapi.middleware.cors import CORSMiddleware
 import torch
 import os
 from dotenv import load_dotenv
@@ -118,7 +119,13 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 
 app = FastAPI()
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/register", response_model=Token)
 def register(user: UserCreate, db: Session = Depends(get_db)):
