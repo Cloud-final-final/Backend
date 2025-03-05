@@ -23,6 +23,14 @@ services:
       - .env
     ports:
       - "8000:8000"
+    deploy:
+      resources:
+        limits:
+          memory: "12G"  # Allow FastAPI container to use up to 8GB
+        reservations:
+          memory: "6G"  # Reserve at least 4GB to prevent memory starvation
+    mem_swappiness: 0  # Prioritize RAM over swap to avoid performance issues
+    memswap_limit: -1  # Allow unlimited swap usage if needed
 
 volumes:
   postgres_data:
