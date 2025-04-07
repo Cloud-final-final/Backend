@@ -4,7 +4,8 @@ from pydantic import BaseModel
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from sqlalchemy import create_engine, Column, String, LargeBinary
+from sqlalchemy import create_engine, Column, String, LargeBinary, Text, JSON, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 import requests
 import os
@@ -33,13 +34,17 @@ class User(Base):
     username = Column(String, primary_key=True, index=True)
     hashed_password = Column(String)
 
+    documents = relationship("Document", back_populates="owner")
 
-class FileData(Base):
-    __tablename__ = "files"
+class Document(Base):
+    __tablename__ = "documents"
     id = Column(String, primary_key=True, index=True)
-    owner = Column(String, index=True)
+    owner_username = Column(String, ForeignKey("users.username"))
     filename = Column(String)
-    content = Column(LargeBinary)
+    file_path = Column(Text)
+    embeddings = Column(JSON)
+
+    owner = relationship("User", back_populates="documents")
 
 
 Base.metadata.create_all(bind=engine)
