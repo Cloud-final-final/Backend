@@ -6,29 +6,12 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, Column, String, LargeBinary
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
-import time
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-from fastapi.middleware.cors import CORSMiddleware
-import torch
+import requests
 import os
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 load_dotenv()
-hf_token = os.getenv("HF_TOKEN")
-
-model_name = "microsoft/Phi-3-mini-4k-instruct"
-
-model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    device_map="auto",
-    torch_dtype=torch.float16,
-    token=hf_token  # Pass token to access the model
-)
-
-tokenizer = AutoTokenizer.from_pretrained(model_name, token=hf_token)
-
-# Create a pipeline for text generation
-qa_pipeline = pipeline("text-generation", model=model, tokenizer=tokenizer)
 
 # Configuración
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -121,11 +104,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.post("/register", response_model=Token)
 def register(user: UserCreate, db: Session = Depends(get_db)):
@@ -200,16 +184,39 @@ def ask_file(file_id: str, request: AskRequest, current_user: User = Depends(get
 
     text = file.content.decode("utf-8", errors="ignore")
 
-    # Crear el prompt para el modelo
-    prompt = f"Answer concisely and only respond to the given question. \n\nContext: {text}\n\nQuestion: {request.question}\n"
+    # Get OpenRouter API key from environment
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+    if not OPENROUTER_API_KEY:
+        raise HTTPException(
+            status_code=500, detail="OpenRouter API key not configured")
 
-    time_1 = time.time()
+    # Make request to OpenRouter API
+    response = requests.post(
+        url="https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "model": "meta-llama/llama-4-maverick:free",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": f"You are a helpful assistant. Use the following context to answer the question:\n\n{text}"
+                },
+                {
+                    "role": "user",
+                    "content": request.question
+                }
+            ]
+        }
+    )
 
-    response = qa_pipeline(prompt, max_new_tokens=100, do_sample=True)
-    print(f"Time taken: {time.time() - time_1:.2f} seconds")
-    answer_full = response[0]["generated_text"].strip()
-    # Divide y toma la parte después de 'Answer:'
-    small_one = answer_full.split(
-        f"\n\nQuestion: {request.question}\n", 1)[-1].strip()
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=500, detail="Error calling language model API")
 
-    return {"answer": answer_full, 'small_answer': small_one}
+    result = response.json()
+    answer = result['choices'][0]['message']['content']
+
+    return {"answer": answer}
