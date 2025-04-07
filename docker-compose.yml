@@ -1,36 +1,12 @@
 version: "3.9"
 
 services:
-  db:
-    image: postgres:15
-    container_name: postgres_db
-    restart: always
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  web:
-    build: .
+  backend:
+    build:
+      context: .
     container_name: fastapi_app
-    depends_on:
-      - db
     env_file:
       - .env
     ports:
       - "8000:8000"
-    deploy:
-      resources:
-        limits:
-          memory: "12G"  # Allow FastAPI container to use up to 8GB
-        reservations:
-          memory: "6G"  # Reserve at least 4GB to prevent memory starvation
-    mem_swappiness: 0  # Prioritize RAM over swap to avoid performance issues
-    memswap_limit: -1  # Allow unlimited swap usage if needed
-
-volumes:
-  postgres_data:
+    restart: unless-stopped
