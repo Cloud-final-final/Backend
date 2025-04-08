@@ -12,6 +12,7 @@ import os
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import shutil
+import glob
 
 load_dotenv()
 
@@ -220,46 +221,56 @@ class AskRequest(BaseModel):
 
 @app.post("/ask/{file_id}")
 def ask_file(file_id: str, request: AskRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Get document from database
+    # Buscar el documento en la base de datos que coincida con el id y el usuario actual
     document = db.query(Document).filter(
         Document.id == file_id,
         Document.owner_username == current_user.username
     ).first()
 
+    # Si no existe el documento o no pertenece al usuario, lanzar error 404
     if not document:
         raise HTTPException(
-            status_code=404, detail="Document not found or unauthorized access")
+            status_code=404, detail="Document not found or unauthorized access"
+        )
 
-    # Check if embeddings are available
-    if not document.embeddings:
-        raise HTTPException(
-            status_code=400, detail="Document embeddings are not yet available. Please wait for processing to complete.")
-
-    # Get OpenRouter API key from environment
-
-    # Prepare context from document embeddings
-    # The embeddings should contain the document text chunks
+    # Inicializar la variable que contendrá el contexto
     context = ""
-    if isinstance(document.embeddings, dict) and "text_chunks" in document.embeddings:
-        context = "\n\n".join(document.embeddings["text_chunks"])
-    elif isinstance(document.embeddings, list) and len(document.embeddings) > 0:
-        # If embeddings is a list of chunks with text
-        chunks = [chunk.get("text", "") for chunk in document.embeddings if isinstance(
-            chunk, dict) and "text" in chunk]
-        context = "\n\n".join(chunks)
 
-    # If no context could be extracted from embeddings, try to read the file directly
+    try:
+        # Construir el path donde están los chunks
+        chunk_folder = document.file_path
+
+        # Buscar todos los archivos chunk_*.txt ordenados por nombre
+        chunk_files = sorted(glob.glob(os.path.join(chunk_folder, "chunk_*.txt")))
+
+        # Si hay chunks encontrados
+        if chunk_files:
+            chunks = []
+            for chunk_file in chunk_files:
+                # Leer cada chunk y agregarlo a la lista
+                with open(chunk_file, "r", encoding="utf-8") as f:
+                    chunks.append(f.read())
+            # Unir todos los chunks para formar el contexto
+            context = "\n\n".join(chunks)
+    except Exception as e:
+        print(f"Error reading chunks: {e}")
+
+    # Si no hay chunks o no se pudo reconstruir, intentar leer el archivo original como fallback
     if not context:
         try:
             file_path = os.path.join(document.file_path, document.filename)
             if os.path.exists(file_path):
+                # Leer el archivo original
                 with open(file_path, "r", errors="ignore") as f:
                     context = f.read()
         except Exception as e:
-            print(f"Error reading file: {e}")
-            # Continue with empty context if file can't be read
+            print(f"Error reading original file: {e}")
 
-    # Make request to OpenRouter API
+    # Si después de todo no hay contexto, lanzar error
+    if not context:
+        raise HTTPException(status_code=400, detail="No context could be generated from the document.")
+
+    # Preparar y enviar la petición POST al servicio de OpenRouter con el contexto y la pregunta del usuario
     response = requests.post(
         url="https://openrouter.ai/api/v1/chat/completions",
         headers={
@@ -271,17 +282,19 @@ def ask_file(file_id: str, request: AskRequest, current_user: User = Depends(get
             "messages": [
                 {
                     "role": "user",
-                    "content": f"You are a helpful assistant. Use the following context to answer the question:\n\n{context}"
-                },
+                    "content": f"You are a helpful assistant. Use the following context to answer the question:\n\n{context}\n\nUser's question: {request.question}"
+                }
             ]
         }
     )
 
+    # Si OpenRouter responde con error, lanzar error 500
     if response.status_code != 200:
-        raise HTTPException(
-            status_code=500, detail="Error calling language model API")
+        raise HTTPException(status_code=500, detail="Error calling language model API")
 
+    # Parsear la respuesta JSON y extraer el contenido generado por el modelo
     result = response.json()
     answer = result['choices'][0]['message']['content']
+
 
     return {"answer": answer}
