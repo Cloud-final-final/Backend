@@ -10,7 +10,7 @@ load_dotenv()
 # Get API key from environment variables - use the exact key from the .env file
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_API_KEY = str(OPENROUTER_API_KEY)
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 
 
 # Verify API key is available

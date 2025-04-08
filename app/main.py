@@ -20,7 +20,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 NFS_BASE_PATH = "/mnt/nfs"
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 
 worker_url = "http://10.128.0.4:8001/process"
 
@@ -270,13 +270,9 @@ def ask_file(file_id: str, request: AskRequest, current_user: User = Depends(get
             "model": "meta-llama/llama-4-maverick:free",
             "messages": [
                 {
-                    "role": "system",
+                    "role": "user",
                     "content": f"You are a helpful assistant. Use the following context to answer the question:\n\n{context}"
                 },
-                {
-                    "role": "user",
-                    "content": request.question
-                }
             ]
         }
     )
