@@ -156,14 +156,11 @@ def read_users_me(current_user: User = Depends(get_current_user)):
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     nfs_base_path = "/mnt/nfs"  # Ruta montada
-    user_folder = os.path.join(nfs_base_path, current_user.username)
-
-    # Crear carpeta del usuario
     user_folder = os.path.join(NFS_BASE_PATH, current_user.username)
     os.makedirs(user_folder, exist_ok=True)
 
-    # Crear carpeta del documento usando el nombre del archivo (sin extensión si quieres más limpio)
-    file_base_name = os.path.splitext(file.filename)[0]  # nombre del archivo SIN extensión
+    # Crear carpeta basada en el nombre del archivo (sin extensión)
+    file_base_name = os.path.splitext(file.filename)[0]
     document_folder = os.path.join(user_folder, file_base_name)
     os.makedirs(document_folder, exist_ok=True)
 
