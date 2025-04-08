@@ -39,6 +39,7 @@ class User(Base):
 
     documents = relationship("Document", back_populates="owner")
 
+
 class Document(Base):
     __tablename__ = "documents"
     id = Column(String, primary_key=True, index=True)
@@ -183,7 +184,7 @@ async def upload_file(file: UploadFile = File(...), current_user: User = Depends
     db.add(new_document)
     db.commit()
     db.refresh(new_document)
-      # IP interna de tu worker
+    # IP interna de tu worker
     payload = {"document_id": new_document.id}
 
     try:
@@ -197,13 +198,15 @@ async def upload_file(file: UploadFile = File(...), current_user: User = Depends
 
 @app.get("/files")
 def get_user_files(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    documents = db.query(Document).filter(Document.owner_username == current_user.username).all()
+    documents = db.query(Document).filter(
+        Document.owner_username == current_user.username).all()
     return [{"id": document.id, "filename": document.filename} for document in documents]
 
 
 @app.get("/files/{file_id}")
 def download_file(file_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    document = db.query(Document).filter(Document.id == file_id, Document.owner_username == current_user.username).first()
+    document = db.query(Document).filter(
+        Document.id == file_id, Document.owner_username == current_user.username).first()
     if not document:
         raise HTTPException(status_code=404, detail="File not found")
     return {"filename": document.filename, "content": "File content to be added from NFS"}
@@ -215,19 +218,48 @@ class AskRequest(BaseModel):
 
 @app.post("/ask/{file_id}")
 def ask_file(file_id: str, request: AskRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    file = db.query(FileData).filter(FileData.id == file_id,
-                                     FileData.owner == current_user.username).first()
-    if not file:
-        raise HTTPException(
-            status_code=404, detail="File not found or unauthorized access")
+    # Get document from database
+    document = db.query(Document).filter(
+        Document.id == file_id,
+        Document.owner_username == current_user.username
+    ).first()
 
-    text = file.content.decode("utf-8", errors="ignore")
+    if not document:
+        raise HTTPException(
+            status_code=404, detail="Document not found or unauthorized access")
+
+    # Check if embeddings are available
+    if not document.embeddings:
+        raise HTTPException(
+            status_code=400, detail="Document embeddings are not yet available. Please wait for processing to complete.")
 
     # Get OpenRouter API key from environment
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
     if not OPENROUTER_API_KEY:
         raise HTTPException(
             status_code=500, detail="OpenRouter API key not configured")
+
+    # Prepare context from document embeddings
+    # The embeddings should contain the document text chunks
+    context = ""
+    if isinstance(document.embeddings, dict) and "text_chunks" in document.embeddings:
+        context = "\n\n".join(document.embeddings["text_chunks"])
+    elif isinstance(document.embeddings, list) and len(document.embeddings) > 0:
+        # If embeddings is a list of chunks with text
+        chunks = [chunk.get("text", "") for chunk in document.embeddings if isinstance(
+            chunk, dict) and "text" in chunk]
+        context = "\n\n".join(chunks)
+
+    # If no context could be extracted from embeddings, try to read the file directly
+    if not context:
+        try:
+            file_path = os.path.join(document.file_path, document.filename)
+            if os.path.exists(file_path):
+                with open(file_path, "r", errors="ignore") as f:
+                    context = f.read()
+        except Exception as e:
+            print(f"Error reading file: {e}")
+            # Continue with empty context if file can't be read
 
     # Make request to OpenRouter API
     response = requests.post(
@@ -241,7 +273,7 @@ def ask_file(file_id: str, request: AskRequest, current_user: User = Depends(get
             "messages": [
                 {
                     "role": "system",
-                    "content": f"You are a helpful assistant. Use the following context to answer the question:\n\n{text}"
+                    "content": f"You are a helpful assistant. Use the following context to answer the question:\n\n{context}"
                 },
                 {
                     "role": "user",
