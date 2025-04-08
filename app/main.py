@@ -220,7 +220,12 @@ class AskRequest(BaseModel):
 
 
 @app.post("/ask/{file_id}")
-def ask_file(file_id: str, request: AskRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def ask_file(
+    file_id: str,
+    request: AskRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     # Buscar el documento en la base de datos que coincida con el id y el usuario actual
     document = db.query(Document).filter(
         Document.id == file_id,
@@ -241,7 +246,8 @@ def ask_file(file_id: str, request: AskRequest, current_user: User = Depends(get
         chunk_folder = document.file_path
 
         # Buscar todos los archivos chunk_*.txt ordenados por nombre
-        chunk_files = sorted(glob.glob(os.path.join(chunk_folder, "chunk_*.txt")))
+        chunk_files = sorted(
+            glob.glob(os.path.join(chunk_folder, "chunk_*.txt")))
 
         # Si hay chunks encontrados
         if chunk_files:
@@ -268,7 +274,8 @@ def ask_file(file_id: str, request: AskRequest, current_user: User = Depends(get
 
     # Si después de todo no hay contexto, lanzar error
     if not context:
-        raise HTTPException(status_code=400, detail="No context could be generated from the document.")
+        raise HTTPException(
+            status_code=400, detail="No context could be generated from the document.")
 
     # Preparar y enviar la petición POST al servicio de OpenRouter con el contexto y la pregunta del usuario
     response = requests.post(
@@ -290,11 +297,12 @@ def ask_file(file_id: str, request: AskRequest, current_user: User = Depends(get
 
     # Si OpenRouter responde con error, lanzar error 500
     if response.status_code != 200:
-        raise HTTPException(status_code=500, detail="Error calling language model API")
+        raise HTTPException(
+            status_code=500, detail="Error calling language model API")
 
     # Parsear la respuesta JSON y extraer el contenido generado por el modelo
     result = response.json()
     answer = result['choices'][0]['message']['content']
 
-
+    # Devolver la respuesta generada
     return {"answer": answer}
