@@ -159,7 +159,6 @@ def read_users_me(current_user: User = Depends(get_current_user)):
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    nfs_base_path = "/mnt/nfs"  # Ruta montada
     user_folder = os.path.join(NFS_BASE_PATH, current_user.username)
     os.makedirs(user_folder, exist_ok=True)
 
@@ -244,10 +243,17 @@ def ask_file(
     try:
         # Construir el path donde están los chunks
         chunk_folder = document.file_path
+        print(f"DEBUG: Chunk folder path: {chunk_folder}")
+        print(
+            f"DEBUG: Does chunk folder exist? {os.path.exists(chunk_folder)}")
 
         # Buscar todos los archivos chunk_*.txt ordenados por nombre
+        chunk_pattern = os.path.join(chunk_folder, "chunk_*.txt")
+        print(f"DEBUG: Looking for chunks with pattern: {chunk_pattern}")
         chunk_files = sorted(
-            glob.glob(os.path.join(chunk_folder, "chunk_*.txt")))
+            glob.glob(chunk_pattern)
+        )
+        print(f"DEBUG: Found {len(chunk_files)} chunk files: {chunk_files}")
 
         # Si hay chunks encontrados
         if chunk_files:
@@ -258,24 +264,33 @@ def ask_file(
                     chunks.append(f.read())
             # Unir todos los chunks para formar el contexto
             context = "\n\n".join(chunks)
+            print(f"DEBUG: Successfully read {len(chunks)} chunks")
     except Exception as e:
-        print(f"Error reading chunks: {e}")
+        print(f"DEBUG: Error reading chunks: {e}")
 
     # Si no hay chunks o no se pudo reconstruir, intentar leer el archivo original como fallback
     if not context:
         try:
             file_path = os.path.join(document.file_path, document.filename)
+            print(f"DEBUG: Trying to read original file at: {file_path}")
+            print(f"DEBUG: Original file exists? {os.path.exists(file_path)}")
+
             if os.path.exists(file_path):
                 # Leer el archivo original
                 with open(file_path, "r", errors="ignore") as f:
                     context = f.read()
+                print(f"DEBUG: Successfully read original file")
+
         except Exception as e:
-            print(f"Error reading original file: {e}")
+            print(f"DEBUG: Error reading original file: {e}")
 
     # Si después de todo no hay contexto, lanzar error
     if not context:
+        print(
+            f"DEBUG: No context could be generated. Document ID: {file_id}, Path: {document.file_path}, Filename: {document.filename}")
         raise HTTPException(
-            status_code=400, detail="No context could be generated from the document.")
+            status_code=400, detail="No context could be generated from the document."
+        )
 
     # Preparar y enviar la petición POST al servicio de OpenRouter con el contexto y la pregunta del usuario
     response = requests.post(
