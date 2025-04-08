@@ -12,7 +12,6 @@ import os
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import shutil
-from app.celery_client import celery
 
 load_dotenv()
 
@@ -21,6 +20,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 NFS_BASE_PATH = "/mnt/nfs"
+worker_url = "http://10.128.0.4:8001/process"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -186,8 +186,7 @@ async def upload_file(file: UploadFile = File(...), current_user: User = Depends
     db.add(new_document)
     db.commit()
     db.refresh(new_document)
-
-    worker_url = "http://10.128.0.4:8001/process"  # IP interna de tu worker
+      # IP interna de tu worker
     payload = {"document_id": new_document.id}
 
     try:
