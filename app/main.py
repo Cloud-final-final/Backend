@@ -11,6 +11,7 @@ import requests
 import os
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+import shutil
 
 load_dotenv()
 
@@ -151,27 +152,27 @@ def read_users_me(current_user: User = Depends(get_current_user)):
 
 
 @app.post("/upload")
-def upload_file(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    nfs_base_path = "/mnt/nfs"  # Ruta donde montaste el NFS en tu VM backend
+async def upload_file(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    nfs_base_path = "/mnt/nfs"  # Ruta montada
     user_folder = os.path.join(nfs_base_path, current_user.username)
 
     # Crear carpeta del usuario si no existe
     os.makedirs(user_folder, exist_ok=True)
 
-    # Definir la ruta final del archivo
+    # Definir la ruta final
     file_location = os.path.join(user_folder, file.filename)
 
-    # Guardar el archivo físicamente en la carpeta del usuario
+    # Guardar archivo en el NFS usando shutil
     with open(file_location, "wb") as buffer:
-        buffer.write(file.file.read())
+        shutil.copyfileobj(file.file, buffer)
 
-    # Guardar información en la base de datos
+    # Persistir en base de datos
     new_document = Document(
-        id=os.urandom(16).hex(),  # Generar un ID único
+        id=os.urandom(16).hex(),
         owner_username=current_user.username,
         filename=file.filename,
-        file_path=file_location,  # Ruta archivo
-        embeddings=None  # El worker se encarga después
+        file_path=file_location,
+        embeddings=None
     )
 
     db.add(new_document)
