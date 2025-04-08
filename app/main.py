@@ -183,13 +183,13 @@ def upload_file(file: UploadFile = File(...), current_user: User = Depends(get_c
 
 @app.get("/files")
 def get_user_files(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    documents = db.query(Document).filter(Document.user_id == current_user.id).all()
+    documents = db.query(Document).filter(Document.owner_username == current_user.username).all()
     return [{"id": document.id, "filename": document.filename} for document in documents]
 
 
 @app.get("/files/{file_id}")
 def download_file(file_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    document = db.query(Document).filter(Document.id == file_id, Document.user_id == current_user.id).first()
+    document = db.query(Document).filter(Document.id == file_id, Document.owner_username == current_user.username).first()
     if not document:
         raise HTTPException(status_code=404, detail="File not found")
     return {"filename": document.filename, "content": "File content to be added from NFS"}
