@@ -187,7 +187,14 @@ async def upload_file(file: UploadFile = File(...), current_user: User = Depends
     db.commit()
     db.refresh(new_document)
 
-    celery.send_task('tasks.process_uploaded_file', args=[new_document.id])
+    worker_url = "http://10.128.0.4:8001/process"  # IP interna de tu worker
+    payload = {"document_id": new_document.id}
+
+    try:
+        response = requests.post(worker_url, json=payload, timeout=5)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"Failed to notify worker: {e}")
 
     return {"filename": file.filename, "message": "File uploaded successfully"}
 
