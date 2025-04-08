@@ -19,6 +19,7 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
+NFS_BASE_PATH = "/mnt/nfs"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -156,23 +157,29 @@ async def upload_file(file: UploadFile = File(...), current_user: User = Depends
     nfs_base_path = "/mnt/nfs"  # Ruta montada
     user_folder = os.path.join(nfs_base_path, current_user.username)
 
-    # Crear carpeta del usuario si no existe
+    # Crear carpeta del usuario
+    user_folder = os.path.join(NFS_BASE_PATH, current_user.username)
     os.makedirs(user_folder, exist_ok=True)
 
-    # Definir la ruta final
-    file_location = os.path.join(user_folder, file.filename)
+    # Crear carpeta del documento usando el nombre del archivo (sin extensión si quieres más limpio)
+    file_base_name = os.path.splitext(file.filename)[0]  # nombre del archivo SIN extensión
+    document_folder = os.path.join(user_folder, file_base_name)
+    os.makedirs(document_folder, exist_ok=True)
 
-    # Guardar archivo en el NFS usando shutil
+    # Ruta final para guardar el archivo original
+    file_location = os.path.join(document_folder, file.filename)
+
+    # Guardar el archivo
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Persistir en base de datos
+    # Persistir el documento en la base de datos
     new_document = Document(
         id=os.urandom(16).hex(),
         owner_username=current_user.username,
         filename=file.filename,
-        file_path=file_location,
-        embeddings=None
+        file_path=document_folder,  # <-- Guardamos la carpeta, no el archivo
+        embeddings=None  # Los embeddings los rellenará el worker después
     )
 
     db.add(new_document)
