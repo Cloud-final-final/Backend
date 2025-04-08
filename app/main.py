@@ -12,6 +12,7 @@ import os
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import shutil
+from app.celery_client import celery
 
 load_dotenv()
 
@@ -185,6 +186,8 @@ async def upload_file(file: UploadFile = File(...), current_user: User = Depends
     db.add(new_document)
     db.commit()
     db.refresh(new_document)
+
+    celery.send_task('tasks.process_uploaded_file', args=[new_document.id])
 
     return {"filename": file.filename, "message": "File uploaded successfully"}
 
