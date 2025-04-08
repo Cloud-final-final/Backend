@@ -20,6 +20,8 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 NFS_BASE_PATH = "/mnt/nfs"
+OPENROUTER_API_KEY = "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"
+
 worker_url = "http://10.128.0.4:8001/process"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
@@ -234,10 +236,6 @@ def ask_file(file_id: str, request: AskRequest, current_user: User = Depends(get
             status_code=400, detail="Document embeddings are not yet available. Please wait for processing to complete.")
 
     # Get OpenRouter API key from environment
-    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-    if not OPENROUTER_API_KEY:
-        raise HTTPException(
-            status_code=500, detail="OpenRouter API key not configured")
 
     # Prepare context from document embeddings
     # The embeddings should contain the document text chunks
