@@ -152,27 +152,47 @@ def read_users_me(current_user: User = Depends(get_current_user)):
 
 @app.post("/upload")
 def upload_file(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    file_data = FileData(id=str(datetime.utcnow().timestamp(
-    )), owner=current_user.username, filename=file.filename, content=file.file.read())
-    db.add(file_data)
+    nfs_base_path = "/mnt/nfs"  # Ruta donde montaste el NFS en tu VM backend
+    user_folder = os.path.join(nfs_base_path, current_user.username)
+
+    # Crear carpeta del usuario si no existe
+    os.makedirs(user_folder, exist_ok=True)
+
+    # Definir la ruta final del archivo
+    file_location = os.path.join(user_folder, file.filename)
+
+    # Guardar el archivo físicamente en la carpeta del usuario
+    with open(file_location, "wb") as buffer:
+        buffer.write(file.file.read())
+
+    # Guardar información en la base de datos
+    new_document = Document(
+        id=os.urandom(16).hex(),  # Generar un ID único
+        owner_username=current_user.username,
+        filename=file.filename,
+        file_path=file_location,  # Ruta archivo
+        embeddings=None  # El worker se encarga después
+    )
+
+    db.add(new_document)
     db.commit()
+    db.refresh(new_document)
+
     return {"filename": file.filename, "message": "File uploaded successfully"}
 
 
 @app.get("/files")
 def get_user_files(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    files = db.query(FileData).filter(
-        FileData.owner == current_user.username).all()
-    return [{"id": file.id, "filename": file.filename} for file in files]
+    documents = db.query(Document).filter(Document.user_id == current_user.id).all()
+    return [{"id": document.id, "filename": document.filename} for document in documents]
 
 
 @app.get("/files/{file_id}")
 def download_file(file_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    file = db.query(FileData).filter(FileData.id == file_id,
-                                     FileData.owner == current_user.username).first()
-    if not file:
+    document = db.query(Document).filter(Document.id == file_id, Document.user_id == current_user.id).first()
+    if not document:
         raise HTTPException(status_code=404, detail="File not found")
-    return {"filename": file.filename, "content": file.content}
+    return {"filename": document.filename, "content": "File content to be added from NFS"}
 
 
 class AskRequest(BaseModel):
