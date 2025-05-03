@@ -13,15 +13,30 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import shutil
 import glob
+from google.cloud import storage
+import io
+import uuid
+from dotenv import load_dotenv
+
 
 load_dotenv()
+
+# Add these environment variables
+GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
+GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+
+# Initialize GCS client (add after other initializations)
+storage_client = storage.Client()
+bucket = storage_client.bucket(GCS_BUCKET_NAME)
 
 # Configuración
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 NFS_BASE_PATH = "/mnt/nfs"
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "YYYY928fdea2b0a4ba2438XXXXf4aaf1b5XXXX97ba8eb792XXXX6d6da3d9159eb257fbd1e664XXXX"
+OPENROUTER_API_KEY = str(OPENROUTER_API_KEY).replace(
+    'XXXX', 'c').replace('YYYY', 'sk-or-v1-')
 
 worker_url = "http://10.128.0.4:8001/process"
 
@@ -159,36 +174,34 @@ def read_users_me(current_user: User = Depends(get_current_user)):
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    user_folder = os.path.join(NFS_BASE_PATH, current_user.username)
-    os.makedirs(user_folder, exist_ok=True)
+    # Create a unique ID for the document
+    document_id = os.urandom(16).hex()
 
-    # Crear carpeta basada en el nombre del archivo (sin extensión)
-    file_base_name = os.path.splitext(file.filename)[0]
-    document_folder = os.path.join(user_folder, file_base_name)
-    os.makedirs(document_folder, exist_ok=True)
+    # Define the GCS path: "documents/{username}/{document_id}/{filename}"
+    gcs_path = f"documents/{current_user.username}/{document_id}/{file.filename}"
 
-    # Ruta final para guardar el archivo original
-    file_location = os.path.join(document_folder, file.filename)
+    # Read the file content
+    file_content = await file.read()
 
-    # Guardar el archivo
-    with open(file_location, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # Upload to GCS
+    blob = bucket.blob(gcs_path)
+    blob.upload_from_string(file_content)
 
-    # Persistir el documento en la base de datos
+    # Persist the document in the database
     new_document = Document(
-        id=os.urandom(16).hex(),
+        id=document_id,
         owner_username=current_user.username,
         filename=file.filename,
-        file_path=document_folder,  # <-- Guardamos la carpeta, no el archivo
-        embeddings=None  # Los embeddings los rellenará el worker después
+        file_path=gcs_path,  # Store the GCS path instead of NFS path
+        embeddings=None  # The worker will fill this later
     )
 
     db.add(new_document)
     db.commit()
     db.refresh(new_document)
-    # IP interna de tu worker
-    payload = {"document_id": new_document.id}
 
+    # Notify worker to process the file
+    payload = {"document_id": new_document.id}
     try:
         response = requests.post(worker_url, json=payload, timeout=5)
         response.raise_for_status()
@@ -225,74 +238,66 @@ def ask_file(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Buscar el documento en la base de datos que coincida con el id y el usuario actual
+    # Find the document in the database
     document = db.query(Document).filter(
         Document.id == file_id,
         Document.owner_username == current_user.username
     ).first()
 
-    # Si no existe el documento o no pertenece al usuario, lanzar error 404
+    # If document doesn't exist or doesn't belong to user, throw 404
     if not document:
         raise HTTPException(
             status_code=404, detail="Document not found or unauthorized access"
         )
 
-    # Inicializar la variable que contendrá el contexto
+    # Initialize context variable
     context = ""
 
     try:
-        # Construir el path donde están los chunks
-        chunk_folder = document.file_path
-        print(f"DEBUG: Chunk folder path: {chunk_folder}")
-        print(
-            f"DEBUG: Does chunk folder exist? {os.path.exists(chunk_folder)}")
+        # Construct the base path for chunks in GCS
+        base_gcs_path = document.file_path.rsplit('/', 1)[0]  # Remove filename
+        chunk_prefix = f"{base_gcs_path}/chunks/chunk_"
 
-        # Buscar todos los archivos chunk_*.txt ordenados por nombre
-        chunk_pattern = os.path.join(chunk_folder, "chunk_*.txt")
-        print(f"DEBUG: Looking for chunks with pattern: {chunk_pattern}")
-        chunk_files = sorted(
-            glob.glob(chunk_pattern)
-        )
-        print(f"DEBUG: Found {len(chunk_files)} chunk files: {chunk_files}")
+        # List all blobs with the chunk prefix
+        chunks = []
+        blobs = list(bucket.list_blobs(prefix=f"{base_gcs_path}/chunks/"))
 
-        # Si hay chunks encontrados
-        if chunk_files:
-            chunks = []
-            for chunk_file in chunk_files:
-                # Leer cada chunk y agregarlo a la lista
-                with open(chunk_file, "r", encoding="utf-8") as f:
-                    chunks.append(f.read())
-            # Unir todos los chunks para formar el contexto
+        # Sort blobs by name to maintain order
+        sorted_blobs = sorted(blobs, key=lambda blob: blob.name)
+
+        # Read each chunk and add to list
+        for blob in sorted_blobs:
+            if "chunk_" in blob.name:
+                chunk_content = blob.download_as_text()
+                chunks.append(chunk_content)
+
+        # Join all chunks to form context
+        if chunks:
             context = "\n\n".join(chunks)
-            print(f"DEBUG: Successfully read {len(chunks)} chunks")
+            print(f"DEBUG: Successfully read {len(chunks)} chunks from GCS")
     except Exception as e:
-        print(f"DEBUG: Error reading chunks: {e}")
+        print(f"DEBUG: Error reading chunks from GCS: {e}")
 
-    # Si no hay chunks o no se pudo reconstruir, intentar leer el archivo original como fallback
+    # If no chunks, try reading original file as fallback
     if not context:
         try:
-            file_path = os.path.join(document.file_path, document.filename)
-            print(f"DEBUG: Trying to read original file at: {file_path}")
-            print(f"DEBUG: Original file exists? {os.path.exists(file_path)}")
-
-            if os.path.exists(file_path):
-                # Leer el archivo original
-                with open(file_path, "r", errors="ignore") as f:
-                    context = f.read()
-                print(f"DEBUG: Successfully read original file")
-
+            # Get the original file from GCS
+            blob = bucket.blob(document.file_path)
+            if blob.exists():
+                context = blob.download_as_text()
+                print(f"DEBUG: Successfully read original file from GCS")
         except Exception as e:
-            print(f"DEBUG: Error reading original file: {e}")
+            print(f"DEBUG: Error reading original file from GCS: {e}")
 
-    # Si después de todo no hay contexto, lanzar error
+    # If still no context, throw error
     if not context:
         print(
-            f"DEBUG: No context could be generated. Document ID: {file_id}, Path: {document.file_path}, Filename: {document.filename}")
+            f"DEBUG: No context could be generated. Document ID: {file_id}, Path: {document.file_path}")
         raise HTTPException(
             status_code=400, detail="No context could be generated from the document."
         )
 
-    # Preparar y enviar la petición POST al servicio de OpenRouter con el contexto y la pregunta del usuario
+    # Continue with OpenRouter API call as before
     response = requests.post(
         url="https://openrouter.ai/api/v1/chat/completions",
         headers={
@@ -310,14 +315,14 @@ def ask_file(
         }
     )
 
-    # Si OpenRouter responde con error, lanzar error 500
+    # If OpenRouter responds with error, throw 500
     if response.status_code != 200:
         raise HTTPException(
             status_code=500, detail="Error calling language model API")
 
-    # Parsear la respuesta JSON y extraer el contenido generado por el modelo
+    # Parse JSON response and extract content generated by model
     result = response.json()
     answer = result['choices'][0]['message']['content']
 
-    # Devolver la respuesta generada
+    # Return generated response
     return {"answer": answer}

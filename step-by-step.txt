@@ -1,7 +1,7 @@
-docker compose down -v  # Stops and removes containers, networks, and volumes
+docker-compose down -v  # Stops and removes containers, networks, and volumes
 docker system prune -a --volumes  # Cleans up everything else
 
-docker compose up --build
+docker-compose up --build
 
 After some time and showing the confirmation message, the FastAPI backend is now running in :
 
