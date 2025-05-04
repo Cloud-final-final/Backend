@@ -38,7 +38,7 @@ OPENROUTER_API_KEY = "YYYY928fdea2b0a4ba2438XXXXf4aaf1b5XXXX97ba8eb792XXXX6d6da3
 OPENROUTER_API_KEY = str(OPENROUTER_API_KEY).replace(
     'XXXX', 'c').replace('YYYY', 'sk-or-v1-')
 
-worker_url = "http://10.128.0.4:8001/process"
+worker_url = "http://10.128.0.5:8000/process"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
