@@ -14,9 +14,11 @@ from dotenv import load_dotenv
 import shutil
 import glob
 from google.cloud import storage
+from google.cloud import pubsub_v1
 import io
 import uuid
 from dotenv import load_dotenv
+import json
 
 
 load_dotenv()
@@ -24,10 +26,15 @@ load_dotenv()
 # Add these environment variables
 GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
 
-# Initialize GCS client (add after other initializations)
+# Initialize GCS client
 storage_client = storage.Client()
 bucket = storage_client.bucket(GCS_BUCKET_NAME)
+
+# Initialize Pub/Sub publisher client
+publisher = pubsub_v1.PublisherClient()
+topic_path = publisher.topic_path(GCP_PROJECT_ID, "document-processing")
 
 # Configuración
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -37,8 +44,6 @@ NFS_BASE_PATH = "/mnt/nfs"
 OPENROUTER_API_KEY = "YYYY928fdea2b0a4ba2438XXXXf4aaf1b5XXXX97ba8eb792XXXX6d6da3d9159eb257fbd1e664XXXX"
 OPENROUTER_API_KEY = str(OPENROUTER_API_KEY).replace(
     'XXXX', 'c').replace('YYYY', 'sk-or-v1-')
-
-worker_url = "http://35.188.27.176:8001/process"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -201,13 +206,15 @@ async def upload_file(file: UploadFile = File(...), current_user: User = Depends
     db.commit()
     db.refresh(new_document)
 
-    # Notify worker to process the file
-    payload = {"document_id": new_document.id}
+    # Publicar mensaje en Pub/Sub en lugar de llamada HTTP
     try:
-        response = requests.post(worker_url, json=payload, timeout=5)
-        response.raise_for_status()
-    except requests.RequestException as e:
-        print(f"Failed to notify worker: {e}")
+        message_data = json.dumps(
+            {"document_id": new_document.id}).encode("utf-8")
+        future = publisher.publish(topic_path, message_data)
+        message_id = future.result()  # Espera la confirmación
+        print(f"Mensaje publicado con ID: {message_id}")
+    except Exception as e:
+        print(f"Error al publicar mensaje: {e}")
 
     return {"filename": file.filename, "message": "File uploaded successfully"}
 
