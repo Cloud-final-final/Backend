@@ -1,18 +1,20 @@
-# Usa imagen oficial ligera de Python
+# Usa una imagen base ligera con Python
 FROM python:3.11-slim
 
 # Establece el directorio de trabajo
 WORKDIR /app
 
-# Copia los archivos del proyecto al contenedor
+# Copia los archivos
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
 
-# Instala dependencias
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Variable de entorno que espera Cloud Run
+ENV PORT=8080
 
-# Expón el puerto (el mismo que usarás en Cloud Run)
+# Expone el puerto que Cloud Run usará
 EXPOSE 8080
 
-# Comando para ejecutar FastAPI con Uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Comando para arrancar la app
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
