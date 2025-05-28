@@ -1,19 +1,18 @@
-# Usa la imagen oficial de Python 3.11.6
-FROM python:3.11.6
+# Usa imagen oficial ligera de Python
+FROM python:3.11-slim
 
-# Establece el directorio de trabajo dentro del contenedor
+# Establece el directorio de trabajo
 WORKDIR /app
 
-# Copia los archivos necesarios
-COPY requirements.txt .
-COPY app/ ./app/
-COPY key.json .
+# Copia los archivos del proyecto al contenedor
+COPY . .
 
 # Instala dependencias
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Expone el puerto en el que correrá FastAPI
-EXPOSE 8000
+# Expón el puerto (el mismo que usarás en Cloud Run)
+EXPOSE 8001
 
-# Comando para ejecutar la aplicación
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Comando para ejecutar FastAPI con Uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
